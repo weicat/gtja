@@ -1,5 +1,9 @@
 
 import peval.pmvEval
+import utils.pandas_utils
+import numpy as np 
+from tqdm import tqdm
+
 
 class PortfolioSortingUtils(object):
     
@@ -29,7 +33,9 @@ def univariateSort(factor,
                    remove_st = True,
                    remove_suspend = True,
                    remove_zt = True,
-                   remove_dt = True):
+                   remove_dt = True,
+                   show_progress = True,
+                   industry_netural = False):
     
     if remove_st:
         remove_st = dataloader.getST().fillna(1).astype(int)
@@ -47,24 +53,58 @@ def univariateSort(factor,
     if universe == 'NOBJ':
         choosed = []
         for i in factor.columns:
-            if i.split('.')[1] == 'BJ':
+            if i.split('.')[1] != 'BJ':
                 choosed.append(i)
         
-        factor = factor[choosed].sort_index(axis = 1)
+        factor = factor.loc[:, choosed].sort_index(axis = 1)
 
-    
-    
     adjclose = dataloader.getAdjClose().fillna(0)
-    group_df = PortfolioSortingUtils.getGroupedPortfolio(factor, group_num)
     
-    lst = [peval.pmvEval.WeightPosition(PortfolioSortingUtils.getPortfolioWeight(group_df, i + 1)) 
-           for i in range(group_num)]
-    portfolios = peval.pmvEval.WeightPositions(*lst)
-    z = peval.pmvEval.PortfolioResult(portfolios)
-    res_return, res_volume = z.getPortfolioMV(adjclose,
-                     remove_st = remove_st,
-                     remove_suspend = remove_suspend,
-                     remove_zt = remove_zt,
-                     remove_dt = remove_dt)
     
-    return res_return ,res_volume
+    if not industry_netural:
+        group_df = PortfolioSortingUtils.getGroupedPortfolio(factor, group_num)
+        lst = [peval.pmvEval.WeightPosition(PortfolioSortingUtils.getPortfolioWeight(group_df, i + 1)) 
+               for i in range(group_num)]
+        portfolios = peval.pmvEval.WeightPositions(*lst)
+        z = peval.pmvEval.PortfolioResult(portfolios)
+        res_mv, res_volume = z.getPortfolioMV(adjclose,
+                         remove_st = remove_st,
+                         remove_suspend = remove_suspend,
+                         remove_zt = remove_zt,
+                         remove_dt = remove_dt,
+                         show_progress = show_progress)
+        
+        return res_mv ,res_volume
+
+    else:
+        industry = dataloader.getIndustry().unstack()
+        ind_cls = industry.value_counts().index
+        
+        dic_mv = {}
+        dic_volume = {}
+        for ind in tqdm(ind_cls, 
+                        desc = '行业分组回测中',
+                        total = len(ind_cls),
+                        disable = not show_progress):
+            mytempind = industry[industry == ind].unstack().T
+            mytempind, mytempfac = utils.pandas_utils._align(mytempind, factor)
+            mytempind = mytempind.isna().astype(int).replace([1,0], [np.nan,1])
+            mytempfac = mytempind * mytempfac
+            
+            
+            group_df = PortfolioSortingUtils.getGroupedPortfolio(mytempfac, group_num)
+            lst = [peval.pmvEval.WeightPosition(PortfolioSortingUtils.getPortfolioWeight(group_df, i + 1)) 
+                   for i in range(group_num)]
+            portfolios = peval.pmvEval.WeightPositions(*lst)
+            z = peval.pmvEval.PortfolioResult(portfolios)
+            res_mv, res_volume = z.getPortfolioMV(adjclose,
+                             remove_st = remove_st,
+                             remove_suspend = remove_suspend,
+                             remove_zt = remove_zt,
+                             remove_dt = remove_dt,
+                             show_progress = False)
+                
+            dic_mv[ind] = res_mv
+            dic_volume[ind] = res_volume
+        return dic_mv, dic_volume
+

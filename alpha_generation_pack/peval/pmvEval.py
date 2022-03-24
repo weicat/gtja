@@ -34,8 +34,6 @@ class WeightPosition(object):
             
         temp = self.weight_position[set(stock).intersection(
             set(self.weight_position.columns))]
-        temp.loc[:, set(stock) - set(temp.columns)] = 0
-        temp = temp.loc[:, stock]
         temp.index = np.array(time)[np.searchsorted(pd.to_datetime(time), 
                                      pd.to_datetime(temp.index) )]
         temp.index = pd.to_datetime(temp.index)
@@ -112,6 +110,12 @@ class WeightPositions(object):
 
 class PortfolioResult(object):
     '''
+    搞一下第24个行业  有问题
+    '''
+    
+    
+    
+    '''
     简单的factor 分组测试
     用的是weight/假设一天之内weight不变
     日/周 换仓没问题，月换仓有问题
@@ -135,7 +139,10 @@ class PortfolioResult(object):
                      suspends,
                      zts,
                      dts):
-    
+        weight_arrs, adjclose, sts, suspends, zts, dts =  utils.pandas_utils._alignWithNone(
+            weight_arrs, adjclose, sts, suspends, zts, dts, axis = 1)
+        
+        sel_tocks = weight_arrs.columns
         weight_arrs, adjclose, sts, suspends, zts, dts =  utils.pandas_utils.toValuesWithNone(
             weight_arrs, adjclose, sts, suspends, zts, dts)
         
@@ -153,14 +160,15 @@ class PortfolioResult(object):
         return  pd.Series(return_arr, index = self.record_dates),\
                 pd.DataFrame(real_volume_arr,
                                     index = self.record_dates,
-                                    columns = self.record_stocks)     
+                                    columns = sel_tocks)     
 
     def getPortfolioMV(self,
                         adjclose,
                         remove_st = False,
                         remove_suspend = False,
                         remove_zt = False,
-                        remove_dt = False):
+                        remove_dt = False,
+                        show_progress = True):
         
         
         '''
@@ -202,7 +210,10 @@ class PortfolioResult(object):
         if isinstance(weight_arrs, list):
             _mv = []
             _position = []
-            for w, b in tqdm(zip(weight_arrs, balance_index), total = len(weight_arrs) ):
+            for w, b in tqdm(zip(weight_arrs, balance_index), 
+                             total = len(weight_arrs),
+                             desc = '分组回测中',
+                             disable = not show_progress) :
                 mv, position = self.__TEMPFUNC__(w,
                                   b,
                                   adjclose,
