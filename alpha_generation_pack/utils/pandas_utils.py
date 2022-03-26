@@ -9,6 +9,63 @@ from functools import reduce
 import pandas as pd
 import numpy as np 
 
+'''
+解决一下inner sum的问题
+
+'''
+
+def getOneHotArr(df, 
+                 sortstr_func = lambda x: int(x[2:]),
+                 dummy_na = False,
+                 sliceArr = True):
+    z = df.unstack().value_counts().index
+    z = sorted(z, key = sortstr_func)
+    z = list(z)
+    z.append(np.nan)
+    dic = dict(zip(z, range(len(z))))
+    transformed = df.apply(lambda x: x.map(dic))
+    
+    arr = transformed.values
+    ncols = arr.max()+1
+    out = np.zeros( (arr.size,ncols), dtype=np.uint8)
+    out[np.arange(arr.size),arr.ravel()] = 1
+    out.shape = arr.shape + (ncols,)
+    
+    if not sliceArr:
+        if dummy_na: 
+            return out 
+        else:
+            return out[:,:,:-1]
+    
+    else:
+        if not dummy_na:
+            out = out[:, :, :-1]
+        
+        tf = out.sum(axis = 1) == 0
+        index = np.append([0], (tf[1:] != tf[:-1]).sum(axis = 1))
+        sliced_index = np.where(index !=0)[0]
+        sliced_index = np.append([0], sliced_index)
+        sliced_index = np.append(sliced_index, len(index))
+        
+        res_lst = []
+        choose_lst = []
+        
+        for num in range(1, len(sliced_index)):
+
+            temp_res = out[sliced_index[num -1]: sliced_index[num], :,:]
+            
+            temp_choose = np.where(~tf[sliced_index[num]-1 ,:])[0]
+            
+            choose_lst.append(temp_choose)
+            res_lst.append(temp_res[:,:,temp_choose])
+        
+        return res_lst, [[sliced_index[i-1], sliced_index[i]] for i in range(1, len(sliced_index))], choose_lst
+            
+        
+
+    
+
+
 
 def _align(df1, df2, *dfs, axis = -1):
     dfs_all = [df for df in chain([df1, df2], dfs)]
@@ -58,4 +115,8 @@ def toValuesWithNone(*dfs):
 
 def _sliceIndex(start, end,  *dfs):
     return [i if i is None else i[start: end] for i in dfs]
+
+
+
+
 
