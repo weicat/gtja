@@ -22,6 +22,12 @@ def getOneHotArr(df,
     z = sorted(z, key = sortstr_func)
     z = list(z)
     z.append(np.nan)
+    
+    if dummy_na:
+        name = z
+    else:
+        name = z[:-1]
+    
     dic = dict(zip(z, range(len(z))))
     transformed = df.apply(lambda x: x.map(dic))
     
@@ -59,7 +65,10 @@ def getOneHotArr(df,
             choose_lst.append(temp_choose)
             res_lst.append(temp_res[:,:,temp_choose])
         
-        return res_lst, [[sliced_index[i-1], sliced_index[i]] for i in range(1, len(sliced_index))], choose_lst
+        
+        sted_lst = [[sliced_index[i-1], sliced_index[i]] for i in range(1, len(sliced_index))]
+        
+        return res_lst, sted_lst, choose_lst, name
             
         
 

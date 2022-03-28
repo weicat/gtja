@@ -243,7 +243,8 @@ class SolveBarraToolBox(BarraToolBox):
         factor = sm.add_constant(dic['factors']).values
         ind_size = dic['ind_weight'].values
         weight = dic['cap_weight'].values
-        weight = np.sqrt(weight)/np.sqrt(weight).sum()        
+        # weight = np.sqrt(weight)/np.sqrt(weight).sum()        
+        weight = weight/weight.sum()
         
         C = SolveBarraToolBox.getLinearConstrainMatrix(factor, ind_size)
         b = factor
